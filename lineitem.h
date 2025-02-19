@@ -6,7 +6,9 @@
 
 class LineItem : public QGraphicsLineItem {
 public:
-    LineItem(const QPointF &start, const QPointF &end, QGraphicsItem *parent = nullptr);
+    LineItem(const QPointF &start,
+             const QPointF &end,
+             QGraphicsItem *parent = nullptr); // Конструктор с параметрами
     void setEndPoint(const QPointF &end);
 
 private:
