@@ -3,20 +3,18 @@
 #include <QDebug>
 #include <QWheelEvent>
 #include <QScrollBar>
+#include <QGraphicsEllipseItem>
+
 GraphicsView::GraphicsView(QWidget *parent)
-    : QGraphicsView(parent), currentLine(nullptr), isDrawing(false), isPanning(false) {
+    : QGraphicsView(parent), currentLine(nullptr), isDrawing(false), isPanning(false), snapIndicator(nullptr) {
     scene = new QGraphicsScene(this);
     setScene(scene);
     setRenderHint(QPainter::Antialiasing);
     setMouseTracking(true);
 
-    // Отключаем стандартное перемещение сцены
     setDragMode(QGraphicsView::NoDrag);
+    scene->setSceneRect(0, 0, 5000, 5000);
 
-    // Устанавливаем размер сцены
-    scene->setSceneRect(0, 0, 5000, 5000); // Увеличим размер сцены, чтобы было куда двигать
-
-    // Позволяет перемещать сцену плавно
     setTransformationAnchor(QGraphicsView::NoAnchor);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
 }
@@ -30,6 +28,8 @@ void GraphicsView::mousePressEvent(QMouseEvent *event) {
         setCursor(Qt::ClosedHandCursor);
     } else if (event->button() == Qt::LeftButton) {
         startPoint = mapToScene(event->pos());
+        startPoint = findClosestSnapPoint(startPoint);
+
         currentLine = new LineItem(startPoint, startPoint, nullptr);
         scene->addItem(currentLine);
         isDrawing = true;
@@ -39,21 +39,29 @@ void GraphicsView::mousePressEvent(QMouseEvent *event) {
 
 void GraphicsView::mouseMoveEvent(QMouseEvent *event) {
     if (isPanning) {
-        // Вычисляем смещение мыши
         QPointF delta = mapToScene(event->pos()) - mapToScene(panStartPos);
-        panStartPos = event->pos(); // Обновляем начальную позицию
-
-        // Получаем текущий трансформ и сдвигаем его
+        panStartPos = event->pos();
         QTransform transform = this->transform();
         transform.translate(delta.x(), delta.y());
-        setTransform(transform); // Применяем новый трансформ
+        setTransform(transform);
     } else if (isDrawing && currentLine) {
-        QPointF endPoint = mapToScene(event->pos());
-        currentLine->setEndPoint(endPoint);
+        QPointF rawEndPoint = mapToScene(event->pos());
+        QPointF snappedEndPoint = findClosestSnapPoint(rawEndPoint);
+
+        currentLine->setEndPoint(snappedEndPoint);
+
+        if (!snapIndicator) {
+            snapIndicator = new QGraphicsEllipseItem();
+            snapIndicator->setRect(-5, -5, 10, 10);
+            snapIndicator->setBrush(Qt::red);
+            snapIndicator->setPen(Qt::NoPen);
+            scene->addItem(snapIndicator);
+        }
+        snapIndicator->setPos(snappedEndPoint);
+        snapIndicator->setVisible(true);
     }
     QGraphicsView::mouseMoveEvent(event);
 }
-
 
 void GraphicsView::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::MiddleButton) {
@@ -62,19 +70,43 @@ void GraphicsView::mouseReleaseEvent(QMouseEvent *event) {
     } else if (event->button() == Qt::LeftButton && isDrawing) {
         isDrawing = false;
         currentLine = nullptr;
+
+        if (snapIndicator) {
+            snapIndicator->setVisible(false);
+        }
     }
     QGraphicsView::mouseReleaseEvent(event);
 }
 
 void GraphicsView::wheelEvent(QWheelEvent *event) {
-    // Точка, относительно которой будет происходить масштабирование
     QPointF scenePos = mapToScene(event->position().toPoint());
-
-    // Масштабирование
-    qreal scaleFactor = (event->angleDelta().y() > 0) ? 1.1 : 0.9; // Увеличение или уменьшение на 10%
+    qreal scaleFactor = (event->angleDelta().y() > 0) ? 1.1 : 0.9;
     scale(scaleFactor, scaleFactor);
 
-    // Корректируем положение сцены, чтобы точка под курсором оставалась на месте
     QPointF delta = mapToScene(event->position().toPoint()) - scenePos;
     translate(delta.x(), delta.y());
+}
+
+QPointF GraphicsView::findClosestSnapPoint(const QPointF &pos) {
+    constexpr qreal SNAP_RADIUS = 10.0;
+    QPointF closestPoint = pos;
+    qreal minDist = SNAP_RADIUS;
+
+    for (QGraphicsItem *item : scene->items()) {
+        if (auto *line = dynamic_cast<LineItem *>(item)) {
+            QPointF start = line->line().p1();
+            QPointF end = line->line().p2();
+            QPointF middle = (start + end) / 2;
+
+            std::vector<QPointF> snapPoints = {start, end, middle};
+            for (const QPointF &p : snapPoints) {
+                qreal dist = QLineF(pos, p).length();
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestPoint = p;
+                }
+            }
+        }
+    }
+    return closestPoint;
 }
