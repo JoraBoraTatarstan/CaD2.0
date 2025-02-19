@@ -1,3 +1,4 @@
+// graphicsview.h
 #ifndef GRAPHICSVIEW_H
 #define GRAPHICSVIEW_H
 
