@@ -1,7 +1,9 @@
 #include "lineitem.h"
 #include <QPen>
 
-LineItem::LineItem(const QPointF &start, const QPointF &end, QGraphicsItem *parent)
+LineItem::LineItem(const QPointF &start,
+                   const QPointF &end,
+                   QGraphicsItem *parent)
     : QGraphicsLineItem(QLineF(start, end), parent), startPoint(start) {
     setPen(QPen(Qt::black, 2));
 }
