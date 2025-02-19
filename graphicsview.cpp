@@ -4,6 +4,7 @@
 #include <QWheelEvent>
 #include <QScrollBar>
 #include <QGraphicsEllipseItem>
+#include <QTimer>
 
 GraphicsView::GraphicsView(QWidget *parent)
     : QGraphicsView(parent), currentLine(nullptr), isDrawing(false), isPanning(false), snapIndicator(nullptr) {
@@ -16,7 +17,8 @@ GraphicsView::GraphicsView(QWidget *parent)
     scene->setSceneRect(0, 0, 5000, 5000);
 
     setTransformationAnchor(QGraphicsView::NoAnchor);
-    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    setRenderHint(QPainter::SmoothPixmapTransform);
+
 }
 
 GraphicsView::~GraphicsView() {}
@@ -31,6 +33,7 @@ void GraphicsView::mousePressEvent(QMouseEvent *event) {
         startPoint = findClosestSnapPoint(startPoint);
 
         currentLine = new LineItem(startPoint, startPoint, nullptr);
+        currentLine->setPen(QPen(Qt::black, 1));
         scene->addItem(currentLine);
         isDrawing = true;
     }
@@ -42,7 +45,7 @@ void GraphicsView::mouseMoveEvent(QMouseEvent *event) {
         QPointF delta = mapToScene(event->pos()) - mapToScene(panStartPos);
         panStartPos = event->pos();
         QTransform transform = this->transform();
-        transform.translate(delta.x(), delta.y());
+        transform.translate(delta.x() * 0.5, delta.y() * 0.5);
         setTransform(transform);
     } else if (isDrawing && currentLine) {
         QPointF rawEndPoint = mapToScene(event->pos());
@@ -52,8 +55,8 @@ void GraphicsView::mouseMoveEvent(QMouseEvent *event) {
 
         if (!snapIndicator) {
             snapIndicator = new QGraphicsEllipseItem();
-            snapIndicator->setRect(-5, -5, 10, 10);
-            snapIndicator->setBrush(Qt::red);
+            snapIndicator->setRect(-3, -3, 6, 6);
+            snapIndicator->setBrush(Qt::blue);
             snapIndicator->setPen(Qt::NoPen);
             scene->addItem(snapIndicator);
         }
