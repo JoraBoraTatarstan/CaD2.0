@@ -4,6 +4,7 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QMouseEvent>
+#include <QGraphicsEllipseItem>
 #include "lineitem.h"
 
 class GraphicsView : public QGraphicsView {
@@ -24,8 +25,11 @@ private:
     LineItem *currentLine;
     QPointF startPoint;
     bool isDrawing;
-    bool isPanning; // Режим перемещения сцены
-    QPoint panStartPos; // Начальная позиция курсора при перемещении
+    bool isPanning;
+    QPoint panStartPos;
+    QGraphicsEllipseItem *snapIndicator;
+
+    QPointF findClosestSnapPoint(const QPointF &pos);
 };
 
 #endif // GRAPHICSVIEW_H
