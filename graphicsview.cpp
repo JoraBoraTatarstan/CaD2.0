@@ -10,30 +10,26 @@ GraphicsView::GraphicsView(QWidget *parent)
     setRenderHint(QPainter::Antialiasing);
     setMouseTracking(true);
 
-    // Включаем полосы прокрутки
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    // Отключаем перемещение сцены по умолчанию
+    // Отключаем стандартное перемещение сцены
     setDragMode(QGraphicsView::NoDrag);
 
     // Устанавливаем размер сцены
-    scene->setSceneRect(0, 0, width(), height());
+    scene->setSceneRect(0, 0, 5000, 5000); // Увеличим размер сцены, чтобы было куда двигать
+
+    // Позволяет перемещать сцену плавно
+    setTransformationAnchor(QGraphicsView::NoAnchor);
+    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
 }
 
 GraphicsView::~GraphicsView() {}
 
 void GraphicsView::mousePressEvent(QMouseEvent *event) {
-    if (event->button() == Qt::MiddleButton) { // Нажатие на колесико мыши
-        isPanning = true; // Включаем режим перемещения
-        panStartPos = event->pos(); // Запоминаем начальную позицию курсора
-        setCursor(Qt::ClosedHandCursor); // Меняем курсор на "руку"
+    if (event->button() == Qt::MiddleButton) {
+        isPanning = true;
+        panStartPos = event->pos();
+        setCursor(Qt::ClosedHandCursor);
     } else if (event->button() == Qt::LeftButton) {
-        // Преобразуем координаты мыши в координаты сцены
         startPoint = mapToScene(event->pos());
-        qDebug() << "Mouse press at scene coordinates:" << startPoint;
-
-        // Создаем линию с началом и концом в startPoint
         currentLine = new LineItem(startPoint, startPoint, nullptr);
         scene->addItem(currentLine);
         isDrawing = true;
@@ -42,29 +38,27 @@ void GraphicsView::mousePressEvent(QMouseEvent *event) {
 }
 
 void GraphicsView::mouseMoveEvent(QMouseEvent *event) {
-    if (isPanning) { // Если включен режим перемещения
-        // Вычисляем смещение курсора
-        QPoint delta = event->pos() - panStartPos;
+    if (isPanning) {
+        // Вычисляем смещение мыши
+        QPointF delta = mapToScene(event->pos()) - mapToScene(panStartPos);
         panStartPos = event->pos(); // Обновляем начальную позицию
 
-        // Перемещаем сцену
-        if (horizontalScrollBar() && verticalScrollBar()) { // Проверяем, что полосы прокрутки существуют
-            horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
-            verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
-        }
+        // Получаем текущий трансформ и сдвигаем его
+        QTransform transform = this->transform();
+        transform.translate(delta.x(), delta.y());
+        setTransform(transform); // Применяем новый трансформ
     } else if (isDrawing && currentLine) {
-        // Преобразуем координаты мыши в координаты сцены
         QPointF endPoint = mapToScene(event->pos());
-        // Обновляем конечную точку линии
         currentLine->setEndPoint(endPoint);
     }
     QGraphicsView::mouseMoveEvent(event);
 }
 
+
 void GraphicsView::mouseReleaseEvent(QMouseEvent *event) {
-    if (event->button() == Qt::MiddleButton) { // Отпускание колесика мыши
-        isPanning = false; // Выключаем режим перемещения
-        setCursor(Qt::ArrowCursor); // Возвращаем стандартный курсор
+    if (event->button() == Qt::MiddleButton) {
+        isPanning = false;
+        setCursor(Qt::ArrowCursor);
     } else if (event->button() == Qt::LeftButton && isDrawing) {
         isDrawing = false;
         currentLine = nullptr;
